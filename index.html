@@ -1,0 +1,2430 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT + Item Pool Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.2/mammoth.browser.min.js"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg border-b-2 border-blue-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-blue-600">CAT System</h1>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8" id="navMenu">
+                        <button onclick="showSection('dashboard')" class="nav-btn text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">แดชบอร์ด</button>
+                        <button onclick="showSection('itemPool')" class="nav-btn text-gray-500 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors" id="itemPoolNav">คลังข้อสอบ</button>
+                        <button onclick="showSection('testing')" class="nav-btn text-gray-500 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">ทำแบบทดสอบ</button>
+                        <button onclick="showSection('results')" class="nav-btn text-gray-500 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">ผลการทดสอบ</button>
+                        <button onclick="showSection('userManagement')" class="nav-btn text-gray-500 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors hidden" id="userManagementNav">จัดการผู้ใช้</button>
+                        <button onclick="showSection('itemApproval')" class="nav-btn text-gray-500 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors hidden" id="itemApprovalNav">อนุมัติข้อสอบ</button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="userEmail" class="text-sm text-gray-600"></span>
+                    <span id="userRole" class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hidden"></span>
+                    <button onclick="showLogin()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" id="loginBtn">เข้าสู่ระบบ</button>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors hidden" id="logoutBtn">ออกจากระบบ</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Section -->
+    <div id="loginSection" class="min-h-screen flex items-center justify-center">
+        <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">เข้าสู่ระบบ CAT</h2>
+                <p class="text-gray-600">ระบบทดสอบแบบปรับเหมาะ</p>
+            </div>
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">อีเมล</label>
+                    <input type="email" id="loginEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label>
+                    <input type="password" id="loginPassword" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">เข้าสู่ระบบ</button>
+            </form>
+            <div class="text-center space-y-2">
+                <button onclick="showRegister()" class="text-blue-600 hover:text-blue-800 text-sm block w-full">สมัครสมาชิกใหม่</button>
+                <button onclick="enterAsAnonymous()" class="text-gray-600 hover:text-gray-800 text-sm block w-full">เข้าใช้งานแบบไม่ระบุตัวตน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Section -->
+    <div id="registerSection" class="min-h-screen flex items-center justify-center hidden">
+        <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">สมัครสมาชิก</h2>
+                <p class="text-gray-600">สร้างบัญชีใหม่</p>
+            </div>
+            <form id="registerForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อ-นามสกุล</label>
+                    <input type="text" id="registerName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="กรอกชื่อ-นามสกุล">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ระดับชั้น</label>
+                    <select id="registerGrade" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">เลือกระดับชั้น</option>
+                        <option value="grade4">ประถมศึกษาปีที่ 4</option>
+                        <option value="grade5">ประถมศึกษาปีที่ 5</option>
+                        <option value="grade6">ประถมศึกษาปีที่ 6</option>
+                        <option value="grade7">มัธยมศึกษาปีที่ 1</option>
+                        <option value="grade8">มัธยมศึกษาปีที่ 2</option>
+                        <option value="grade9">มัธยมศึกษาปีที่ 3</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">โรงเรียน</label>
+                    <input type="text" id="registerSchool" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="กรอกชื่อโรงเรียน">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">อีเมล</label>
+                    <input type="email" id="registerEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="กรอกอีเมล">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label>
+                    <input type="password" id="registerPassword" required minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="กรอกรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ยืนยันรหัสผ่าน</label>
+                    <input type="password" id="registerConfirmPassword" required minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="กรอกรหัสผ่านอีกครั้ง">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">บทบาท</label>
+                    <select id="registerRole" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="student">นักเรียน</option>
+                        <option value="teacher">ครู</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">สมัครสมาชิก</button>
+            </form>
+            <div class="text-center">
+                <button onclick="showLogin()" class="text-blue-600 hover:text-blue-800 text-sm">กลับไปเข้าสู่ระบบ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden">
+        <!-- Dashboard Section -->
+        <div id="dashboardSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">แดชบอร์ด</h2>
+                <p class="text-gray-600">ภาพรวมของระบบ CAT</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+                    <div class="flex items-center">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900">ข้อสอบทั้งหมด</h3>
+                            <p class="text-3xl font-bold text-blue-600" id="totalItems">0</p>
+                        </div>
+                        <div class="text-blue-500">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+                    <div class="flex items-center">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900">การทดสอบที่เสร็จ</h3>
+                            <p class="text-3xl font-bold text-green-600" id="completedTests">0</p>
+                        </div>
+                        <div class="text-green-500">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
+                    <div class="flex items-center">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900">คะแนนเฉลี่ย</h3>
+                            <p class="text-3xl font-bold text-yellow-600" id="averageScore">0</p>
+                        </div>
+                        <div class="text-yellow-500">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+                    <div class="flex items-center">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900">ผู้ใช้ทั้งหมด</h3>
+                            <p class="text-3xl font-bold text-purple-600" id="totalUsers">0</p>
+                        </div>
+                        <div class="text-purple-500">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">การทดสอบล่าสุด</h3>
+                    <div id="recentTests" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">ยังไม่มีการทดสอบ</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">ข้อสอบยอดนิยม</h3>
+                    <div id="popularItems" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">ยังไม่มีข้อมูล</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Item Pool Section -->
+        <div id="itemPoolSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">คลังข้อสอบ</h2>
+                    <p class="text-gray-600">จัดการข้อสอบและพารามิเตอร์ IRT</p>
+                </div>
+                <div class="flex space-x-4" id="itemPoolActions">
+                    <button onclick="showDocxImportModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        นำเข้าไฟล์ DOCX
+                    </button>
+                    <button onclick="showAddItemModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        เพิ่มข้อสอบใหม่
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <input type="text" id="searchItems" placeholder="ค้นหาข้อสอบ..." class="flex-1 min-w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterDifficulty" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกระดับความยาก</option>
+                        <option value="easy">ง่าย</option>
+                        <option value="medium">ปานกลาง</option>
+                        <option value="hard">ยาก</option>
+                    </select>
+                    <select id="filterSubject" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกวิชา</option>
+                        <option value="math">คณิตศาสตร์</option>
+                        <option value="science">วิทยาศาสตร์</option>
+                        <option value="thai">ภาษาไทย</option>
+                        <option value="english">ภาษาอังกฤษ</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อสอบ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วิชา</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ความยาก (b)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การแยกแยะ (a)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การเดา (c)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การใช้งาน</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Items will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Testing Section -->
+        <div id="testingSection" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div id="testSetup" class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">เริ่มการทดสอบแบบปรับเหมาะ</h2>
+                
+                <div class="max-w-md mx-auto space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกวิชา</label>
+                        <select id="testSubject" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">เลือกวิชา</option>
+                            <option value="math">คณิตศาสตร์</option>
+                            <option value="science">วิทยาศาสตร์</option>
+                            <option value="thai">ภาษาไทย</option>
+                            <option value="english">ภาษาอังกฤษ</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">จำนวนข้อสอบสูงสุด</label>
+                        <input type="number" id="maxItems" value="20" min="5" max="50" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เกณฑ์การหยุด (Standard Error)</label>
+                        <input type="number" id="stopCriteria" value="0.3" step="0.1" min="0.1" max="1.0" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <button onclick="startTest()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors">
+                        เริ่มทำแบบทดสอบ
+                    </button>
+                </div>
+            </div>
+
+            <div id="testInterface" class="hidden">
+                <div class="bg-white rounded-xl shadow-lg p-8 mb-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-lg font-semibold text-gray-700">ข้อที่ <span id="currentQuestionNum">1</span></span>
+                            <div class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                <span id="testSubjectDisplay"></span>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            ความสามารถปัจจุบัน: <span id="currentAbility" class="font-semibold">0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-8">
+                        <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                            <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="questionContent" class="mb-8">
+                        <!-- Question will be loaded here -->
+                    </div>
+
+                    <div id="answerOptions" class="space-y-3 mb-8">
+                        <!-- Answer options will be loaded here -->
+                    </div>
+
+                    <div class="flex justify-between">
+                        <button onclick="previousQuestion()" id="prevBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50" disabled>
+                            ข้อก่อนหน้า
+                        </button>
+                        <button onclick="nextQuestion()" id="nextBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50" disabled>
+                            ข้อถัดไป
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="testResults" class="hidden bg-white rounded-xl shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">ผลการทดสอบ</h2>
+                    <div class="text-6xl font-bold text-blue-600 mb-2" id="finalScore">0</div>
+                    <p class="text-gray-600 mb-4">คะแนนความสามารถ (Theta)</p>
+                    <div class="text-lg text-gray-700">
+                        ความแม่นยำ: <span id="finalSE" class="font-semibold">0.00</span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600" id="totalAnswered">0</div>
+                        <div class="text-sm text-gray-600">ข้อที่ตอบ</div>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600" id="correctAnswers">0</div>
+                        <div class="text-sm text-gray-600">ตอบถูก</div>
+                    </div>
+                    <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                        <div class="text-2xl font-bold text-yellow-600" id="accuracyRate">0%</div>
+                        <div class="text-sm text-gray-600">ความแม่นยำ</div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center space-x-4">
+                    <button onclick="restartTest()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        ทำแบบทดสอบใหม่
+                    </button>
+                    <button onclick="showSection('results')" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors" id="viewResultsBtn">
+                        ดูประวัติการทดสอบ
+                    </button>
+                </div>
+                
+                <div id="anonymousMessage" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center hidden">
+                    <p class="text-yellow-800">
+                        <strong>หมายเหตุ:</strong> ผู้ใช้ไม่ระบุตัวตนไม่สามารถบันทึกผลการทดสอบได้ 
+                        <a href="#" onclick="showLogin()" class="text-blue-600 hover:text-blue-800 underline">เข้าสู่ระบบ</a> 
+                        เพื่อบันทึกและติดตามผลการทดสอบ
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Management Section (Admin Only) -->
+        <div id="userManagementSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">จัดการผู้ใช้</h2>
+                <p class="text-gray-600">จัดการสิทธิ์และข้อมูลผู้ใช้ทั้งหมด</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <input type="text" id="searchUsers" placeholder="ค้นหาผู้ใช้..." class="flex-1 min-w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterRole" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกบทบาท</option>
+                        <option value="admin">ผู้ดูแลระบบ</option>
+                        <option value="teacher">ครู</option>
+                        <option value="student">นักเรียน</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้ใช้</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">บทบาท</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ระดับชั้น</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">โรงเรียน</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สมัคร</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การทดสอบ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Item Approval Section (Admin Only) -->
+        <div id="itemApprovalSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">อนุมัติข้อสอบ</h2>
+                    <p class="text-gray-600">ตรวจสอบและอนุมัติข้อสอบที่รอการอนุมัติ</p>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="approveAllItems()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        อนุมัติทั้งหมด
+                    </button>
+                    <button onclick="clearAllData()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                        ล้างข้อมูลทั้งหมด
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <select id="filterApprovalStatus" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกสถานะ</option>
+                        <option value="pending">รอการอนุมัติ</option>
+                        <option value="approved">อนุมัติแล้ว</option>
+                        <option value="rejected">ปฏิเสธ</option>
+                    </select>
+                    <select id="filterApprovalSubject" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกวิชา</option>
+                        <option value="math">คณิตศาสตร์</option>
+                        <option value="science">วิทยาศาสตร์</option>
+                        <option value="thai">ภาษาไทย</option>
+                        <option value="english">ภาษาอังกฤษ</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อสอบ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วิชา</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้สร้าง</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สร้าง</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="approvalTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Items will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">ผลการทดสอบ</h2>
+                <p class="text-gray-600">ประวัติและสถิติการทดสอบ</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <select id="filterResultsSubject" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกวิชา</option>
+                        <option value="math">คณิตศาสตร์</option>
+                        <option value="science">วิทยาศาสตร์</option>
+                        <option value="thai">ภาษาไทย</option>
+                        <option value="english">ภาษาอังกฤษ</option>
+                    </select>
+                    <input type="date" id="filterDateFrom" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="date" id="filterDateTo" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วิชา</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน (θ)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ความแม่นยำ (SE)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อสอบ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ตอบถูก</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เวลา</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Results will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOCX Import Modal -->
+    <div id="docxImportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-900">นำเข้าไฟล์ DOCX</h3>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">เลือกไฟล์ DOCX</label>
+                    <input type="file" id="docxFileInput" accept=".docx" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">รองรับไฟล์ .docx เท่านั้น</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">วิชา</label>
+                    <select id="importSubject" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">เลือกวิชา</option>
+                        <option value="math">คณิตศาสตร์</option>
+                        <option value="science">วิทยาศาสตร์</option>
+                        <option value="thai">ภาษาไทย</option>
+                        <option value="english">ภาษาอังกฤษ</option>
+                    </select>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-medium text-blue-900 mb-2">รูปแบบข้อสอบที่รองรับ:</h4>
+                    <div class="text-sm text-blue-800 space-y-1">
+                        <p><strong>1. (ความยาก: -2.0)</strong> 35 + 47 = ?</p>
+                        <p>ก. 72</p>
+                        <p><strong>*ข. 82</strong> ← เครื่องหมาย * หมายถึงเฉลย</p>
+                        <p>ค. 85</p>
+                        <p>ง. 92</p>
+                        <div class="mt-3 p-2 bg-blue-100 rounded text-xs">
+                            <strong>หมายเหตุ:</strong> ค่าการแยกแยะ (a) จะถูกตั้งเป็น 1.0 โดยอัตโนมัติ
+                        </div>
+                    </div>
+                </div>
+
+                <div id="filePreview" class="hidden">
+                    <h4 class="font-medium text-gray-900 mb-3">ตัวอย่างข้อสอบที่พบ:</h4>
+                    <div id="previewContent" class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
+                        <!-- Preview content will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeDocxImportModal()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                        ยกเลิก
+                    </button>
+                    <button type="button" onclick="importItems()" id="importBtn" disabled class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50">
+                        นำเข้าข้อสอบ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-900">เพิ่มข้อสอบใหม่</h3>
+            </div>
+            <form id="addItemForm" class="p-6 space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">คำถาม</label>
+                    <textarea id="itemQuestion" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">วิชา</label>
+                        <select id="itemSubject" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">เลือกวิชา</option>
+                            <option value="math">คณิตศาสตร์</option>
+                            <option value="science">วิทยาศาสตร์</option>
+                            <option value="thai">ภาษาไทย</option>
+                            <option value="english">ภาษาอังกฤษ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ระดับความยาก</label>
+                        <select id="itemDifficulty" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">เลือกระดับ</option>
+                            <option value="easy">ง่าย</option>
+                            <option value="medium">ปานกลาง</option>
+                            <option value="hard">ยาก</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ระดับดาว (1-6)</label>
+                        <select id="itemDifficultyLevel" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="1">⭐ (ง่ายมาก)</option>
+                            <option value="2">⭐⭐ (ง่าย)</option>
+                            <option value="3">⭐⭐⭐ (ปานกลาง)</option>
+                            <option value="4">⭐⭐⭐⭐ (ยาก)</option>
+                            <option value="5">⭐⭐⭐⭐⭐ (ยากมาก)</option>
+                            <option value="6">⭐⭐⭐⭐⭐⭐ (ยากที่สุด)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-gray-700">ตัวเลือก</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center space-x-3">
+                            <input type="radio" name="correctAnswer" value="0" id="correct0" class="text-blue-600">
+                            <input type="text" id="option0" placeholder="ตัวเลือก A" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <input type="radio" name="correctAnswer" value="1" id="correct1" class="text-blue-600">
+                            <input type="text" id="option1" placeholder="ตัวเลือก B" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <input type="radio" name="correctAnswer" value="2" id="correct2" class="text-blue-600">
+                            <input type="text" id="option2" placeholder="ตัวเลือก C" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <input type="radio" name="correctAnswer" value="3" id="correct3" class="text-blue-600">
+                            <input type="text" id="option3" placeholder="ตัวเลือก D" required class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ความยาก (b)</label>
+                        <input type="number" id="itemB" step="0.1" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">-3 ถึง 3</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">การแยกแยะ (a)</label>
+                        <input type="number" id="itemA" step="0.1" value="1" min="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">0.1 ถึง 3</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">การเดา (c)</label>
+                        <input type="number" id="itemC" step="0.01" value="0.25" min="0" max="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">0 ถึง 1</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeAddItemModal()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        บันทึก
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBRFDcGXLIyDRJnYkx-VXs8zggHFVTVr4c",
+            authDomain: "cat-demo-i-b9d84.firebaseapp.com",
+            projectId: "cat-demo-i-b9d84",
+            storageBucket: "cat-demo-i-b9d84.firebasestorage.app",
+            messagingSenderId: "61384012079",
+            appId: "1:61384012079:web:585229e8fad6590276b1da",
+            measurementId: "G-CL87G5M4YZ"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global variables
+        let currentUser = null;
+        let currentUserRole = 'anonymous'; // 'admin', 'registered', 'anonymous'
+        let currentTest = null;
+        let testItems = [];
+        let currentItemIndex = 0;
+        let userResponses = [];
+        let currentAbilityEstimate = 0;
+        let currentSE = 1;
+
+        // Authentication state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                
+                // Get user role from Firestore
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        currentUserRole = userData.role || 'registered';
+                    } else {
+                        currentUserRole = 'registered';
+                    }
+                } catch (error) {
+                    console.error('Error getting user role:', error);
+                    currentUserRole = 'registered';
+                }
+                
+                // Check if admin
+                if (user.email === 'babu555monkeyman@gmail.com') {
+                    currentUserRole = 'admin';
+                }
+                
+                updateUIForRole();
+                showMainApp();
+                loadDashboardData();
+            } else {
+                currentUser = null;
+                currentUserRole = 'anonymous';
+                updateUIForRole();
+                showMainApp(); // Allow anonymous access
+                loadDashboardData();
+            }
+        });
+
+        // Show/Hide sections
+        function showLogin() {
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showRegister() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.remove('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            showSection('dashboard');
+        }
+
+        // Update UI based on user role
+        function updateUIForRole() {
+            const userEmailEl = document.getElementById('userEmail');
+            const userRoleEl = document.getElementById('userRole');
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userManagementNav = document.getElementById('userManagementNav');
+            const itemApprovalNav = document.getElementById('itemApprovalNav');
+            const itemPoolActions = document.getElementById('itemPoolActions');
+            
+            if (currentUserRole === 'anonymous') {
+                userEmailEl.textContent = 'ผู้ใช้ไม่ระบุตัวตน';
+                userRoleEl.textContent = 'ผู้ใช้ไม่ระบุตัวตน';
+                userRoleEl.className = 'text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full';
+                userRoleEl.classList.remove('hidden');
+                loginBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+                
+                // Anonymous users can only test
+                userManagementNav.classList.add('hidden');
+                itemApprovalNav.classList.add('hidden');
+                
+                if (itemPoolActions) {
+                    itemPoolActions.style.display = 'none';
+                }
+                
+            } else if (currentUserRole === 'admin') {
+                userEmailEl.textContent = currentUser.email;
+                userRoleEl.textContent = 'ผู้ดูแลระบบ';
+                userRoleEl.className = 'text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full';
+                userRoleEl.classList.remove('hidden');
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                
+                // Admin has full access
+                userManagementNav.classList.remove('hidden');
+                itemApprovalNav.classList.remove('hidden');
+                
+                if (itemPoolActions) {
+                    itemPoolActions.style.display = 'flex';
+                }
+                
+            } else if (currentUserRole === 'teacher') {
+                userEmailEl.textContent = currentUser.email;
+                userRoleEl.textContent = 'ครู';
+                userRoleEl.className = 'text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full';
+                userRoleEl.classList.remove('hidden');
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                
+                // Teachers can manage items but not users
+                userManagementNav.classList.add('hidden');
+                itemApprovalNav.classList.add('hidden');
+                
+                if (itemPoolActions) {
+                    itemPoolActions.style.display = 'flex';
+                }
+                
+            } else if (currentUserRole === 'student') {
+                userEmailEl.textContent = currentUser.email;
+                userRoleEl.textContent = 'นักเรียน';
+                userRoleEl.className = 'text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full';
+                userRoleEl.classList.remove('hidden');
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                
+                // Students can only test and view results
+                userManagementNav.classList.add('hidden');
+                itemApprovalNav.classList.add('hidden');
+                
+                if (itemPoolActions) {
+                    itemPoolActions.style.display = 'none';
+                }
+            }
+        }
+
+        function enterAsAnonymous() {
+            currentUser = null;
+            currentUserRole = 'anonymous';
+            updateUIForRole();
+            showMainApp();
+            loadDashboardData();
+        }
+
+        function showSection(sectionName) {
+            // Check permissions based on user roles
+            if (currentUserRole === 'anonymous') {
+                // Anonymous users can only access testing
+                if (sectionName !== 'dashboard' && sectionName !== 'testing') {
+                    alert('กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้');
+                    return;
+                }
+            }
+            
+            if (currentUserRole === 'student') {
+                // Students can access dashboard, testing, and results only
+                if (sectionName === 'itemPool' || sectionName === 'userManagement' || sectionName === 'itemApproval') {
+                    alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+                    return;
+                }
+            }
+            
+            if (currentUserRole === 'teacher') {
+                // Teachers can access all except admin functions
+                if (sectionName === 'userManagement' || sectionName === 'itemApproval') {
+                    alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+                    return;
+                }
+            }
+            
+            if (currentUserRole !== 'admin' && (sectionName === 'userManagement' || sectionName === 'itemApproval')) {
+                alert('เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถเข้าถึงหน้านี้ได้');
+                return;
+            }
+            
+            // Hide all sections
+            const sections = ['dashboard', 'itemPool', 'testing', 'results', 'userManagement', 'itemApproval'];
+            sections.forEach(section => {
+                document.getElementById(section + 'Section').classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + 'Section').classList.remove('hidden');
+            
+            // Update navigation - find the clicked button by matching the onclick content
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-gray-900');
+                btn.classList.add('text-gray-500');
+                
+                // Check if this button corresponds to the current section
+                const onclick = btn.getAttribute('onclick');
+                if (onclick && onclick.includes(`'${sectionName}'`)) {
+                    btn.classList.remove('text-gray-500');
+                    btn.classList.add('text-gray-900');
+                }
+            });
+
+            // Load section-specific data
+            if (sectionName === 'itemPool') {
+                loadItems();
+            } else if (sectionName === 'results') {
+                loadResults();
+            } else if (sectionName === 'userManagement') {
+                loadUsers();
+            } else if (sectionName === 'itemApproval') {
+                loadItemsForApproval();
+            } else if (sectionName === 'testing') {
+                // Reset test interface when entering testing section
+                document.getElementById('testSetup').classList.remove('hidden');
+                document.getElementById('testInterface').classList.add('hidden');
+                document.getElementById('testResults').classList.add('hidden');
+            }
+        }
+
+        // Authentication functions
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                // Check if this is admin login
+                if (email === 'babu555monkeyman@gmail.com' && password === '123456') {
+                    // Create admin account if it doesn't exist
+                    try {
+                        await auth.createUserWithEmailAndPassword(email, password);
+                        // Save admin profile
+                        await db.collection('users').doc(auth.currentUser.uid).set({
+                            name: 'System Administrator',
+                            email: email,
+                            role: 'admin',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (createError) {
+                        // Account might already exist, try to sign in
+                        if (createError.code === 'auth/email-already-in-use') {
+                            await auth.signInWithEmailAndPassword(email, password);
+                        } else {
+                            throw createError;
+                        }
+                    }
+                } else {
+                    await auth.signInWithEmailAndPassword(email, password);
+                }
+            } catch (error) {
+                alert('เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const grade = document.getElementById('registerGrade').value;
+            const school = document.getElementById('registerSchool').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const role = document.getElementById('registerRole').value;
+            
+            // Validate password confirmation
+            if (password !== confirmPassword) {
+                alert('รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
+                return;
+            }
+
+            // Validate password length
+            if (password.length < 6) {
+                alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+                return;
+            }
+
+            // Validate grade selection
+            if (!grade) {
+                alert('กรุณาเลือกระดับชั้น');
+                return;
+            }
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // Save user profile to Firestore
+                await db.collection('users').doc(userCredential.user.uid).set({
+                    name: name,
+                    grade: grade,
+                    school: school,
+                    email: email,
+                    role: role,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert('สมัครสมาชิกสำเร็จ!');
+                showLogin();
+            } catch (error) {
+                alert('สมัครสมาชิกไม่สำเร็จ: ' + error.message);
+            }
+        });
+
+        function logout() {
+            auth.signOut();
+        }
+
+        // Dashboard functions
+        async function loadDashboardData() {
+            try {
+                // Load statistics
+                const itemsSnapshot = await db.collection('items').get();
+                document.getElementById('totalItems').textContent = itemsSnapshot.size;
+
+                const testsSnapshot = await db.collection('testResults').where('userId', '==', currentUser.uid).get();
+                document.getElementById('completedTests').textContent = testsSnapshot.size;
+
+                if (testsSnapshot.size > 0) {
+                    let totalScore = 0;
+                    testsSnapshot.forEach(doc => {
+                        totalScore += doc.data().finalAbility || 0;
+                    });
+                    const averageScore = (totalScore / testsSnapshot.size).toFixed(2);
+                    document.getElementById('averageScore').textContent = averageScore;
+                }
+
+                const usersSnapshot = await db.collection('users').get();
+                document.getElementById('totalUsers').textContent = usersSnapshot.size;
+
+                // Load recent tests
+                const recentTestsSnapshot = await db.collection('testResults')
+                    .where('userId', '==', currentUser.uid)
+                    .orderBy('completedAt', 'desc')
+                    .limit(5)
+                    .get();
+
+                const recentTestsContainer = document.getElementById('recentTests');
+                if (recentTestsSnapshot.empty) {
+                    recentTestsContainer.innerHTML = '<p class="text-gray-500 text-center py-8">ยังไม่มีการทดสอบ</p>';
+                } else {
+                    recentTestsContainer.innerHTML = '';
+                    recentTestsSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        const testElement = document.createElement('div');
+                        testElement.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg';
+                        testElement.innerHTML = `
+                            <div>
+                                <div class="font-medium">${getSubjectName(data.subject)}</div>
+                                <div class="text-sm text-gray-500">${formatDate(data.completedAt)}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-blue-600">${data.finalAbility?.toFixed(2) || '0.00'}</div>
+                                <div class="text-sm text-gray-500">${data.correctAnswers}/${data.totalItems}</div>
+                            </div>
+                        `;
+                        recentTestsContainer.appendChild(testElement);
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        // Item Pool functions
+        async function loadItems() {
+            try {
+                const snapshot = await db.collection('items').get();
+                const tbody = document.getElementById('itemsTableBody');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">ยังไม่มีข้อสอบ</td></tr>';
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    // Check if current user can edit/delete this item
+                    const canEdit = currentUserRole === 'admin' || (currentUserRole === 'teacher' && data.createdBy === currentUser.uid);
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-gray-900">${data.question.substring(0, 100)}...</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${getSubjectName(data.subject)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.b?.toFixed(2) || '0.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.a?.toFixed(2) || '1.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.c?.toFixed(2) || '0.25'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.usageCount || 0}</td>
+                        <td class="px-6 py-4 text-sm font-medium">
+                            ${canEdit ? `
+                                <button onclick="editItem('${doc.id}')" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button>
+                                <button onclick="deleteItem('${doc.id}')" class="text-red-600 hover:text-red-900">ลบ</button>
+                            ` : `
+                                <span class="text-gray-400">ไม่มีสิทธิ์</span>
+                            `}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Error loading items:', error);
+            }
+        }
+
+        function showAddItemModal() {
+            if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') {
+                alert('เฉพาะผู้ดูแลระบบและครูเท่านั้นที่สามารถเพิ่มข้อสอบได้');
+                return;
+            }
+            document.getElementById('addItemModal').classList.remove('hidden');
+            document.getElementById('addItemModal').classList.add('flex');
+        }
+
+        function closeAddItemModal() {
+            document.getElementById('addItemModal').classList.add('hidden');
+            document.getElementById('addItemModal').classList.remove('flex');
+            document.getElementById('addItemForm').reset();
+            
+            // Reset form title and button text
+            document.querySelector('#addItemModal h3').textContent = 'เพิ่มข้อสอบใหม่';
+            document.querySelector('#addItemForm button[type="submit"]').textContent = 'บันทึก';
+            
+            // Remove edit ID
+            delete document.getElementById('addItemForm').dataset.editId;
+        }
+
+        document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const question = document.getElementById('itemQuestion').value;
+            const subject = document.getElementById('itemSubject').value;
+            const difficulty = document.getElementById('itemDifficulty').value;
+            const difficultyLevel = parseInt(document.getElementById('itemDifficultyLevel').value);
+            const options = [
+                document.getElementById('option0').value,
+                document.getElementById('option1').value,
+                document.getElementById('option2').value,
+                document.getElementById('option3').value
+            ];
+            const correctAnswer = parseInt(document.querySelector('input[name="correctAnswer"]:checked')?.value);
+            const a = parseFloat(document.getElementById('itemA').value);
+            const b = parseFloat(document.getElementById('itemB').value);
+            const c = parseFloat(document.getElementById('itemC').value);
+
+            if (correctAnswer === undefined) {
+                alert('กรุณาเลือกคำตอบที่ถูกต้อง');
+                return;
+            }
+
+            const itemData = {
+                question: question,
+                subject: subject,
+                difficulty: difficulty,
+                difficultyLevel: difficultyLevel,
+                options: options,
+                correctAnswer: correctAnswer,
+                a: a,
+                b: b,
+                c: c
+            };
+
+            try {
+                const editId = e.target.dataset.editId;
+                
+                if (editId) {
+                    // Update existing item
+                    await db.collection('items').doc(editId).update({
+                        ...itemData,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert('อัปเดตข้อสอบสำเร็จ!');
+                } else {
+                    // Add new item
+                    await db.collection('items').add({
+                        ...itemData,
+                        usageCount: 0,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: currentUser.uid
+                    });
+                    alert('เพิ่มข้อสอบสำเร็จ!');
+                }
+
+                closeAddItemModal();
+                loadItems();
+            } catch (error) {
+                console.error('Error saving item:', error);
+                alert('บันทึกข้อสอบไม่สำเร็จ');
+            }
+        });
+
+        async function editItem(itemId) {
+            if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') {
+                alert('เฉพาะผู้ดูแลระบบและครูเท่านั้นที่สามารถแก้ไขข้อสอบได้');
+                return;
+            }
+            
+            try {
+                const doc = await db.collection('items').doc(itemId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    // Check if teacher can edit this item (only their own items)
+                    if (currentUserRole === 'teacher' && data.createdBy !== currentUser.uid) {
+                        alert('คุณสามารถแก้ไขได้เฉพาะข้อสอบที่คุณสร้างเท่านั้น');
+                        return;
+                    }
+                    
+                    // Populate the form with existing data
+                    document.getElementById('itemQuestion').value = data.question;
+                    document.getElementById('itemSubject').value = data.subject;
+                    document.getElementById('itemDifficulty').value = data.difficulty;
+                    document.getElementById('itemDifficultyLevel').value = data.difficultyLevel || 1;
+                    document.getElementById('option0').value = data.options[0];
+                    document.getElementById('option1').value = data.options[1];
+                    document.getElementById('option2').value = data.options[2];
+                    document.getElementById('option3').value = data.options[3];
+                    document.getElementById('itemA').value = data.a;
+                    document.getElementById('itemB').value = data.b;
+                    document.getElementById('itemC').value = data.c;
+                    
+                    // Set correct answer
+                    document.getElementById(`correct${data.correctAnswer}`).checked = true;
+                    
+                    // Change form title and button
+                    document.querySelector('#addItemModal h3').textContent = 'แก้ไขข้อสอบ';
+                    document.querySelector('#addItemForm button[type="submit"]').textContent = 'อัปเดต';
+                    
+                    // Store item ID for update
+                    document.getElementById('addItemForm').dataset.editId = itemId;
+                    
+                    showAddItemModal();
+                }
+            } catch (error) {
+                console.error('Error loading item for edit:', error);
+                alert('โหลดข้อมูลข้อสอบไม่สำเร็จ');
+            }
+        }
+
+        async function deleteItem(itemId) {
+            if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') {
+                alert('เฉพาะผู้ดูแลระบบและครูเท่านั้นที่สามารถลบข้อสอบได้');
+                return;
+            }
+            
+            // Check if teacher can delete this item (only their own items)
+            if (currentUserRole === 'teacher') {
+                try {
+                    const doc = await db.collection('items').doc(itemId).get();
+                    if (doc.exists && doc.data().createdBy !== currentUser.uid) {
+                        alert('คุณสามารถลบได้เฉพาะข้อสอบที่คุณสร้างเท่านั้น');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error checking item ownership:', error);
+                    alert('ไม่สามารถตรวจสอบสิทธิ์ได้');
+                    return;
+                }
+            }
+            
+            if (confirm('คุณแน่ใจหรือไม่ที่จะลบข้อสอบนี้?')) {
+                try {
+                    await db.collection('items').doc(itemId).delete();
+                    alert('ลบข้อสอบสำเร็จ!');
+                    loadItems();
+                } catch (error) {
+                    console.error('Error deleting item:', error);
+                    alert('ลบข้อสอบไม่สำเร็จ');
+                }
+            }
+        }
+
+        // Testing functions
+        async function startTest() {
+            const subject = document.getElementById('testSubject').value;
+            const maxItems = parseInt(document.getElementById('maxItems').value);
+            const stopCriteria = parseFloat(document.getElementById('stopCriteria').value);
+
+            if (!subject) {
+                alert('กรุณาเลือกวิชา');
+                return;
+            }
+
+            try {
+                // Load items for the selected subject
+                const snapshot = await db.collection('items').where('subject', '==', subject).get();
+                
+                if (snapshot.empty) {
+                    alert('ไม่มีข้อสอบสำหรับวิชานี้');
+                    return;
+                }
+
+                testItems = [];
+                snapshot.forEach(doc => {
+                    testItems.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Initialize test
+                currentTest = {
+                    subject: subject,
+                    maxItems: maxItems,
+                    stopCriteria: stopCriteria,
+                    startTime: new Date(),
+                    items: testItems
+                };
+
+                currentItemIndex = 0;
+                userResponses = [];
+                currentAbilityEstimate = 0;
+                currentSE = 1;
+
+                document.getElementById('testSubjectDisplay').textContent = getSubjectName(subject);
+                document.getElementById('testSetup').classList.add('hidden');
+                document.getElementById('testInterface').classList.remove('hidden');
+
+                loadCurrentQuestion();
+
+            } catch (error) {
+                console.error('Error starting test:', error);
+                alert('เริ่มการทดสอบไม่สำเร็จ');
+            }
+        }
+
+        function loadCurrentQuestion() {
+            if (currentItemIndex >= testItems.length || currentItemIndex >= currentTest.maxItems) {
+                finishTest();
+                return;
+            }
+
+            // Select next item using CAT algorithm (simplified)
+            const nextItem = selectNextItem();
+            const currentItem = nextItem;
+
+            document.getElementById('currentQuestionNum').textContent = currentItemIndex + 1;
+            document.getElementById('currentAbility').textContent = currentAbilityEstimate.toFixed(2);
+            
+            const progress = ((currentItemIndex + 1) / currentTest.maxItems) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+
+            // Display question
+            document.getElementById('questionContent').innerHTML = `
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">${currentItem.question}</h3>
+            `;
+
+            // Display options
+            const optionsContainer = document.getElementById('answerOptions');
+            optionsContainer.innerHTML = '';
+            
+            currentItem.options.forEach((option, index) => {
+                const optionElement = document.createElement('label');
+                optionElement.className = 'flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors';
+                optionElement.innerHTML = `
+                    <input type="radio" name="answer" value="${index}" class="mr-3 text-blue-600">
+                    <span class="text-gray-900">${String.fromCharCode(65 + index)}. ${option}</span>
+                `;
+                optionsContainer.appendChild(optionElement);
+            });
+
+            // Update button states
+            document.getElementById('prevBtn').disabled = currentItemIndex === 0;
+            document.getElementById('nextBtn').disabled = true;
+
+            // Enable next button when answer is selected
+            document.querySelectorAll('input[name="answer"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    document.getElementById('nextBtn').disabled = false;
+                });
+            });
+        }
+
+        function selectNextItem() {
+            // Simplified CAT item selection - in real implementation, use more sophisticated algorithms
+            if (currentItemIndex === 0) {
+                // Start with medium difficulty item
+                return testItems.find(item => item.difficulty === 'medium') || testItems[0];
+            }
+
+            // Select item closest to current ability estimate
+            let bestItem = testItems[0];
+            let minDifference = Math.abs(testItems[0].b - currentAbilityEstimate);
+
+            testItems.forEach(item => {
+                const difference = Math.abs(item.b - currentAbilityEstimate);
+                if (difference < minDifference) {
+                    minDifference = difference;
+                    bestItem = item;
+                }
+            });
+
+            return bestItem;
+        }
+
+        function nextQuestion() {
+            const selectedAnswer = document.querySelector('input[name="answer"]:checked');
+            if (!selectedAnswer) {
+                alert('กรุณาเลือกคำตอบ');
+                return;
+            }
+
+            const currentItem = testItems[currentItemIndex] || selectNextItem();
+            const userAnswer = parseInt(selectedAnswer.value);
+            const isCorrect = userAnswer === currentItem.correctAnswer;
+
+            // Record response
+            userResponses.push({
+                itemId: currentItem.id,
+                userAnswer: userAnswer,
+                correctAnswer: currentItem.correctAnswer,
+                isCorrect: isCorrect,
+                responseTime: new Date() - currentTest.startTime
+            });
+
+            // Update ability estimate (simplified IRT)
+            updateAbilityEstimate(currentItem, isCorrect);
+
+            currentItemIndex++;
+
+            // Check stopping criteria
+            if (currentSE <= currentTest.stopCriteria || currentItemIndex >= currentTest.maxItems) {
+                finishTest();
+            } else {
+                loadCurrentQuestion();
+            }
+        }
+
+        function updateAbilityEstimate(item, isCorrect) {
+            // Simplified ability estimation - in real implementation, use proper IRT algorithms
+            const adjustment = isCorrect ? 0.5 : -0.5;
+            currentAbilityEstimate += adjustment * (item.a || 1);
+            currentSE = Math.max(0.1, currentSE - 0.05); // Simplified SE reduction
+        }
+
+        function previousQuestion() {
+            if (currentItemIndex > 0) {
+                currentItemIndex--;
+                loadCurrentQuestion();
+            }
+        }
+
+        async function finishTest() {
+            const endTime = new Date();
+            const totalTime = Math.round((endTime - currentTest.startTime) / 1000); // seconds
+            const correctAnswers = userResponses.filter(r => r.isCorrect).length;
+            const accuracyRate = Math.round((correctAnswers / userResponses.length) * 100);
+
+            // Save test results (only for registered users)
+            if (currentUserRole === 'registered' || currentUserRole === 'admin') {
+                try {
+                    await db.collection('testResults').add({
+                        userId: currentUser.uid,
+                        subject: currentTest.subject,
+                        finalAbility: currentAbilityEstimate,
+                        standardError: currentSE,
+                        totalItems: userResponses.length,
+                        correctAnswers: correctAnswers,
+                        accuracyRate: accuracyRate,
+                        totalTime: totalTime,
+                        responses: userResponses,
+                        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    // Update item usage counts
+                    for (const response of userResponses) {
+                        await db.collection('items').doc(response.itemId).update({
+                            usageCount: firebase.firestore.FieldValue.increment(1)
+                        });
+                    }
+
+                } catch (error) {
+                    console.error('Error saving test results:', error);
+                }
+            } else {
+                // For anonymous users, just update usage counts
+                try {
+                    for (const response of userResponses) {
+                        await db.collection('items').doc(response.itemId).update({
+                            usageCount: firebase.firestore.FieldValue.increment(1)
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error updating usage counts:', error);
+                }
+            }
+
+            // Display results
+            document.getElementById('finalScore').textContent = currentAbilityEstimate.toFixed(2);
+            document.getElementById('finalSE').textContent = currentSE.toFixed(2);
+            document.getElementById('totalAnswered').textContent = userResponses.length;
+            document.getElementById('correctAnswers').textContent = correctAnswers;
+            document.getElementById('accuracyRate').textContent = accuracyRate + '%';
+
+            // Show/hide elements based on user role
+            const viewResultsBtn = document.getElementById('viewResultsBtn');
+            const anonymousMessage = document.getElementById('anonymousMessage');
+            
+            if (currentUserRole === 'anonymous') {
+                viewResultsBtn.style.display = 'none';
+                anonymousMessage.classList.remove('hidden');
+            } else {
+                viewResultsBtn.style.display = 'inline-block';
+                anonymousMessage.classList.add('hidden');
+            }
+
+            document.getElementById('testInterface').classList.add('hidden');
+            document.getElementById('testResults').classList.remove('hidden');
+        }
+
+        function restartTest() {
+            document.getElementById('testResults').classList.add('hidden');
+            document.getElementById('testSetup').classList.remove('hidden');
+            currentTest = null;
+            testItems = [];
+            currentItemIndex = 0;
+            userResponses = [];
+            currentAbilityEstimate = 0;
+            currentSE = 1;
+        }
+
+        // Results functions
+        async function loadResults() {
+            try {
+                const snapshot = await db.collection('testResults')
+                    .where('userId', '==', currentUser.uid)
+                    .orderBy('completedAt', 'desc')
+                    .get();
+
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">ยังไม่มีผลการทดสอบ</td></tr>';
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDate(data.completedAt)}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${getSubjectName(data.subject)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">${data.finalAbility?.toFixed(2) || '0.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.standardError?.toFixed(2) || '0.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.totalItems || 0}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.correctAnswers || 0}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatTime(data.totalTime)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        // Admin Functions
+        async function loadUsers() {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                const snapshot = await db.collection('users').get();
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">ยังไม่มีผู้ใช้</td></tr>';
+                    return;
+                }
+
+                for (const doc of snapshot.docs) {
+                    const data = doc.data();
+                    
+                    // Get test count for this user
+                    const testsSnapshot = await db.collection('testResults').where('userId', '==', doc.id).get();
+                    const testCount = testsSnapshot.size;
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-gray-900">${data.name || 'ไม่ระบุ'}</div>
+                            <div class="text-sm text-gray-500">${data.email}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeClass(data.role)}">
+                                ${getRoleName(data.role)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${getGradeName(data.grade)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${data.school || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDate(data.createdAt)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${testCount}</td>
+                        <td class="px-6 py-4 text-sm font-medium">
+                            <select onchange="changeUserRole('${doc.id}', this.value)" class="text-sm border border-gray-300 rounded px-2 py-1 mr-2">
+                                <option value="student" ${data.role === 'student' ? 'selected' : ''}>นักเรียน</option>
+                                <option value="teacher" ${data.role === 'teacher' ? 'selected' : ''}>ครู</option>
+                                <option value="admin" ${data.role === 'admin' ? 'selected' : ''}>ผู้ดูแล</option>
+                            </select>
+                            <button onclick="deleteUser('${doc.id}')" class="text-red-600 hover:text-red-900">ลบ</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function getRoleBadgeClass(role) {
+            switch (role) {
+                case 'admin': return 'bg-red-100 text-red-800';
+                case 'teacher': return 'bg-blue-100 text-blue-800';
+                case 'student': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getRoleName(role) {
+            switch (role) {
+                case 'admin': return 'ผู้ดูแลระบบ';
+                case 'teacher': return 'ครู';
+                case 'student': return 'นักเรียน';
+                default: return 'ไม่ระบุ';
+            }
+        }
+
+        function getGradeName(grade) {
+            const grades = {
+                'grade4': 'ป.4',
+                'grade5': 'ป.5',
+                'grade6': 'ป.6',
+                'grade7': 'ม.1',
+                'grade8': 'ม.2',
+                'grade9': 'ม.3'
+            };
+            return grades[grade] || '-';
+        }
+
+        async function changeUserRole(userId, newRole) {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                await db.collection('users').doc(userId).update({
+                    role: newRole,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('เปลี่ยนบทบาทผู้ใช้สำเร็จ!');
+                loadUsers();
+            } catch (error) {
+                console.error('Error changing user role:', error);
+                alert('เปลี่ยนบทบาทผู้ใช้ไม่สำเร็จ');
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (currentUserRole !== 'admin') return;
+            
+            if (confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้? การกระทำนี้ไม่สามารถยกเลิกได้')) {
+                try {
+                    // Delete user document
+                    await db.collection('users').doc(userId).delete();
+                    
+                    // Delete user's test results
+                    const testsSnapshot = await db.collection('testResults').where('userId', '==', userId).get();
+                    const batch = db.batch();
+                    testsSnapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                    
+                    alert('ลบผู้ใช้สำเร็จ!');
+                    loadUsers();
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    alert('ลบผู้ใช้ไม่สำเร็จ');
+                }
+            }
+        }
+
+        async function loadItemsForApproval() {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                const snapshot = await db.collection('items').get();
+                const tbody = document.getElementById('approvalTableBody');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">ยังไม่มีข้อสอบ</td></tr>';
+                    return;
+                }
+
+                for (const doc of snapshot.docs) {
+                    const data = doc.data();
+                    
+                    // Get creator info
+                    let creatorName = 'ไม่ระบุ';
+                    if (data.createdBy) {
+                        try {
+                            const userDoc = await db.collection('users').doc(data.createdBy).get();
+                            if (userDoc.exists) {
+                                creatorName = userDoc.data().name || userDoc.data().email;
+                            }
+                        } catch (error) {
+                            console.error('Error getting creator info:', error);
+                        }
+                    }
+                    
+                    const status = data.approved === true ? 'approved' : (data.approved === false ? 'rejected' : 'pending');
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-gray-900">${data.question.substring(0, 100)}...</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${getSubjectName(data.subject)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${creatorName}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDate(data.createdAt)}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(status)}">
+                                ${getStatusName(status)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium">
+                            <button onclick="approveItem('${doc.id}')" class="text-green-600 hover:text-green-900 mr-3">อนุมัติ</button>
+                            <button onclick="rejectItem('${doc.id}')" class="text-red-600 hover:text-red-900 mr-3">ปฏิเสธ</button>
+                            <button onclick="viewItem('${doc.id}')" class="text-blue-600 hover:text-blue-900">ดู</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+
+            } catch (error) {
+                console.error('Error loading items for approval:', error);
+            }
+        }
+
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'approved': return 'bg-green-100 text-green-800';
+                case 'rejected': return 'bg-red-100 text-red-800';
+                case 'pending': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getStatusName(status) {
+            switch (status) {
+                case 'approved': return 'อนุมัติแล้ว';
+                case 'rejected': return 'ปฏิเสธ';
+                case 'pending': return 'รอการอนุมัติ';
+                default: return 'ไม่ระบุ';
+            }
+        }
+
+        async function approveItem(itemId) {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                await db.collection('items').doc(itemId).update({
+                    approved: true,
+                    approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    approvedBy: currentUser.uid
+                });
+                alert('อนุมัติข้อสอบสำเร็จ!');
+                loadItemsForApproval();
+            } catch (error) {
+                console.error('Error approving item:', error);
+                alert('อนุมัติข้อสอบไม่สำเร็จ');
+            }
+        }
+
+        async function rejectItem(itemId) {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                await db.collection('items').doc(itemId).update({
+                    approved: false,
+                    rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    rejectedBy: currentUser.uid
+                });
+                alert('ปฏิเสธข้อสอบสำเร็จ!');
+                loadItemsForApproval();
+            } catch (error) {
+                console.error('Error rejecting item:', error);
+                alert('ปฏิเสธข้อสอบไม่สำเร็จ');
+            }
+        }
+
+        async function approveAllItems() {
+            if (currentUserRole !== 'admin') return;
+            
+            if (confirm('คุณแน่ใจหรือไม่ที่จะอนุมัติข้อสอบทั้งหมด?')) {
+                try {
+                    // Get all items first
+                    const snapshot = await db.collection('items').get();
+                    
+                    if (snapshot.empty) {
+                        alert('ไม่มีข้อสอบให้อนุมัติ');
+                        return;
+                    }
+                    
+                    const batch = db.batch();
+                    let itemsToApprove = 0;
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        // Only approve items that are not already approved
+                        if (data.approved !== true) {
+                            batch.update(doc.ref, {
+                                approved: true,
+                                approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                approvedBy: currentUser.uid
+                            });
+                            itemsToApprove++;
+                        }
+                    });
+                    
+                    if (itemsToApprove === 0) {
+                        alert('ข้อสอบทั้งหมดได้รับการอนุมัติแล้ว');
+                        return;
+                    }
+                    
+                    await batch.commit();
+                    alert(`อนุมัติข้อสอบสำเร็จ ${itemsToApprove} ข้อ!`);
+                    loadItemsForApproval();
+                } catch (error) {
+                    console.error('Error approving all items:', error);
+                    alert('อนุมัติข้อสอบทั้งหมดไม่สำเร็จ: ' + error.message);
+                }
+            }
+        }
+
+        async function clearAllData() {
+            if (currentUserRole !== 'admin') return;
+            
+            if (confirm('คุณแน่ใจหรือไม่ที่จะล้างข้อมูลทั้งหมด? การกระทำนี้ไม่สามารถยกเลิกได้')) {
+                if (confirm('การกระทำนี้จะลบข้อสอบและผลการทดสอบทั้งหมด คุณแน่ใจหรือไม่?')) {
+                    try {
+                        // Delete all items
+                        const itemsSnapshot = await db.collection('items').get();
+                        const itemsBatch = db.batch();
+                        itemsSnapshot.forEach(doc => {
+                            itemsBatch.delete(doc.ref);
+                        });
+                        await itemsBatch.commit();
+                        
+                        // Delete all test results
+                        const resultsSnapshot = await db.collection('testResults').get();
+                        const resultsBatch = db.batch();
+                        resultsSnapshot.forEach(doc => {
+                            resultsBatch.delete(doc.ref);
+                        });
+                        await resultsBatch.commit();
+                        
+                        alert('ล้างข้อมูลทั้งหมดสำเร็จ!');
+                        loadItemsForApproval();
+                        loadDashboardData();
+                    } catch (error) {
+                        console.error('Error clearing all data:', error);
+                        alert('ล้างข้อมูลไม่สำเร็จ');
+                    }
+                }
+            }
+        }
+
+        async function viewItem(itemId) {
+            try {
+                const doc = await db.collection('items').doc(itemId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    let content = `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium text-gray-900 mb-2">คำถาม:</h4>
+                                <p class="text-gray-800">${data.question}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 mb-2">ตัวเลือก:</h4>
+                                <div class="space-y-1">
+                    `;
+                    
+                    data.options.forEach((option, index) => {
+                        const isCorrect = index === data.correctAnswer;
+                        content += `
+                            <div class="text-sm ${isCorrect ? 'text-green-600 font-medium' : 'text-gray-600'}">
+                                ${String.fromCharCode(65 + index)}. ${option} ${isCorrect ? '✓' : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    content += `
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <span class="font-medium">วิชา:</span> ${getSubjectName(data.subject)}
+                                </div>
+                                <div>
+                                    <span class="font-medium">ความยาก (b):</span> ${data.b?.toFixed(2) || '0.00'}
+                                </div>
+                                <div>
+                                    <span class="font-medium">การแยกแยะ (a):</span> ${data.a?.toFixed(2) || '1.00'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Create modal
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
+                    modal.innerHTML = `
+                        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+                            <div class="p-6 border-b border-gray-200">
+                                <h3 class="text-xl font-semibold text-gray-900">รายละเอียดข้อสอบ</h3>
+                            </div>
+                            <div class="p-6">
+                                ${content}
+                            </div>
+                            <div class="p-6 border-t border-gray-200 text-right">
+                                <button onclick="this.closest('.fixed').remove()" class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
+                                    ปิด
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                }
+            } catch (error) {
+                console.error('Error viewing item:', error);
+                alert('ไม่สามารถดูรายละเอียดข้อสอบได้');
+            }
+        }
+
+        // DOCX Import Functions
+        let parsedItems = [];
+
+        function showDocxImportModal() {
+            if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') {
+                alert('เฉพาะผู้ดูแลระบบและครูเท่านั้นที่สามารถนำเข้าข้อสอบได้');
+                return;
+            }
+            document.getElementById('docxImportModal').classList.remove('hidden');
+            document.getElementById('docxImportModal').classList.add('flex');
+        }
+
+        function closeDocxImportModal() {
+            document.getElementById('docxImportModal').classList.add('hidden');
+            document.getElementById('docxImportModal').classList.remove('flex');
+            document.getElementById('docxFileInput').value = '';
+            document.getElementById('filePreview').classList.add('hidden');
+            document.getElementById('importBtn').disabled = true;
+            parsedItems = [];
+        }
+
+        // Add event listener for file input
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('docxFileInput');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect);
+            }
+        });
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                alert('กรุณาเลือกไฟล์ DOCX เท่านั้น');
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                // Show loading state
+                document.getElementById('importBtn').disabled = true;
+                document.getElementById('importBtn').textContent = 'กำลังอ่านไฟล์...';
+                
+                const arrayBuffer = await file.arrayBuffer();
+                
+                // Check if mammoth is available
+                if (typeof mammoth === 'undefined') {
+                    throw new Error('ไลบรารี mammoth ไม่พร้อมใช้งาน');
+                }
+                
+                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                const text = result.value;
+                
+                if (!text || text.trim().length === 0) {
+                    throw new Error('ไฟล์ว่างเปล่าหรือไม่สามารถอ่านได้');
+                }
+                
+                // Parse the text to extract questions
+                parsedItems = parseDocxContent(text);
+                
+                if (parsedItems.length === 0) {
+                    alert('ไม่พบข้อสอบในรูปแบบที่ถูกต้อง\n\nกรุณาตรวจสอบรูปแบบไฟล์:\n1. (ความยาก: -2.0) คำถาม\nก. ตัวเลือก A\n*ข. ตัวเลือกที่ถูก\nค. ตัวเลือก C\nง. ตัวเลือก D');
+                    document.getElementById('importBtn').textContent = 'นำเข้าข้อสอบ';
+                    return;
+                }
+
+                displayPreview(parsedItems);
+                document.getElementById('filePreview').classList.remove('hidden');
+                document.getElementById('importBtn').disabled = false;
+                document.getElementById('importBtn').textContent = 'นำเข้าข้อสอบ';
+
+            } catch (error) {
+                console.error('Error reading DOCX file:', error);
+                alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
+                document.getElementById('importBtn').disabled = true;
+                document.getElementById('importBtn').textContent = 'นำเข้าข้อสอบ';
+                event.target.value = '';
+            }
+        }
+
+        function parseDocxContent(text) {
+            const items = [];
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            let currentItem = null;
+            let currentOptions = [];
+            let correctAnswer = -1;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Check if this is a question line (starts with number and contains difficulty)
+                const questionMatch = line.match(/^(\d+)\.\s*\(ความยาก:\s*([-\d.]+)\)\s*(.+)/);
+                
+                if (questionMatch) {
+                    // Save previous item if exists
+                    if (currentItem && currentOptions.length >= 4 && correctAnswer >= 0) {
+                        currentItem.options = currentOptions;
+                        currentItem.correctAnswer = correctAnswer;
+                        items.push(currentItem);
+                    }
+                    
+                    // Start new item
+                    const questionNumber = parseInt(questionMatch[1]);
+                    const difficultyValue = parseFloat(questionMatch[2]);
+                    const questionText = questionMatch[3];
+                    
+                    currentItem = {
+                        questionNumber: questionNumber,
+                        question: questionText,
+                        b: difficultyValue,
+                        difficultyLevel: getDifficultyLevelFromB(difficultyValue)
+                    };
+                    currentOptions = [];
+                    correctAnswer = -1;
+                    continue;
+                }
+                
+                // Check if this is an option line
+                const optionMatch = line.match(/^(\*?)([ก-ง])\.\s*(.+)/);
+                if (optionMatch && currentItem) {
+                    const isCorrect = optionMatch[1] === '*';
+                    const optionLetter = optionMatch[2];
+                    const optionText = optionMatch[3];
+                    
+                    currentOptions.push(optionText);
+                    
+                    if (isCorrect) {
+                        correctAnswer = currentOptions.length - 1;
+                    }
+                    continue;
+                }
+                
+                // If not a question or option, might be continuation of question text
+                if (currentItem && currentOptions.length === 0) {
+                    currentItem.question += ' ' + line;
+                }
+            }
+            
+            // Don't forget the last item
+            if (currentItem && currentOptions.length >= 4 && correctAnswer >= 0) {
+                currentItem.options = currentOptions;
+                currentItem.correctAnswer = correctAnswer;
+                items.push(currentItem);
+            }
+            
+            return items;
+        }
+
+        function getDifficultyLevelFromB(bValue) {
+            // Convert b parameter to 1-6 star scale
+            if (bValue <= -2.0) return 1;      // ⭐ (ง่ายมาก)
+            if (bValue <= -1.0) return 2;      // ⭐⭐ (ง่าย)
+            if (bValue <= 0.0) return 3;       // ⭐⭐⭐ (ปานกลาง)
+            if (bValue <= 1.0) return 4;       // ⭐⭐⭐⭐ (ยาก)
+            if (bValue <= 2.0) return 5;       // ⭐⭐⭐⭐⭐ (ยากมาก)
+            return 6;                          // ⭐⭐⭐⭐⭐⭐ (ยากที่สุด)
+        }
+
+        function getDifficultyStars(level) {
+            const stars = '⭐'.repeat(level);
+            return stars;
+        }
+
+        function displayPreview(items) {
+            const previewContent = document.getElementById('previewContent');
+            previewContent.innerHTML = '';
+            
+            const summary = document.createElement('div');
+            summary.className = 'mb-4 p-3 bg-green-50 rounded-lg border border-green-200';
+            summary.innerHTML = `
+                <div class="flex items-center text-green-800">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="font-medium">พบข้อสอบ ${items.length} ข้อ</span>
+                </div>
+            `;
+            previewContent.appendChild(summary);
+            
+            items.slice(0, 3).forEach((item, index) => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'mb-4 p-4 border border-gray-200 rounded-lg bg-white';
+                
+                const correctOption = String.fromCharCode(65 + item.correctAnswer);
+                
+                itemElement.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold text-gray-900">ข้อ ${item.questionNumber}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-600">ความยาก: ${item.b}</span>
+                            <div class="flex">${getDifficultyStars(item.difficultyLevel)}</div>
+                        </div>
+                    </div>
+                    <div class="text-gray-800 mb-3">${item.question}</div>
+                    <div class="space-y-1">
+                        ${item.options.map((option, i) => `
+                            <div class="text-sm ${i === item.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-600'}">
+                                ${String.fromCharCode(65 + i)}. ${option} ${i === item.correctAnswer ? '✓' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                previewContent.appendChild(itemElement);
+            });
+            
+            if (items.length > 3) {
+                const moreElement = document.createElement('div');
+                moreElement.className = 'text-center text-gray-500 text-sm';
+                moreElement.textContent = `และอีก ${items.length - 3} ข้อ...`;
+                previewContent.appendChild(moreElement);
+            }
+        }
+
+        async function importItems() {
+            const subject = document.getElementById('importSubject').value;
+            
+            if (!subject) {
+                alert('กรุณาเลือกวิชา');
+                return;
+            }
+            
+            if (parsedItems.length === 0) {
+                alert('ไม่มีข้อสอบให้นำเข้า');
+                return;
+            }
+            
+            try {
+                document.getElementById('importBtn').disabled = true;
+                document.getElementById('importBtn').textContent = 'กำลังนำเข้า...';
+                
+                let successCount = 0;
+                
+                for (const item of parsedItems) {
+                    const itemData = {
+                        question: item.question,
+                        subject: subject,
+                        difficulty: getDifficultyCategory(item.difficultyLevel),
+                        difficultyLevel: item.difficultyLevel,
+                        options: item.options,
+                        correctAnswer: item.correctAnswer,
+                        a: 1.0, // Default discrimination parameter
+                        b: item.b,
+                        c: 0.25, // Default guessing parameter
+                        usageCount: 0,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: currentUser.uid,
+                        importedFrom: 'docx'
+                    };
+                    
+                    await db.collection('items').add(itemData);
+                    successCount++;
+                }
+                
+                alert(`นำเข้าข้อสอบสำเร็จ ${successCount} ข้อ!`);
+                closeDocxImportModal();
+                loadItems();
+                
+            } catch (error) {
+                console.error('Error importing items:', error);
+                alert('เกิดข้อผิดพลาดในการนำเข้าข้อสอบ: ' + error.message);
+            } finally {
+                document.getElementById('importBtn').disabled = false;
+                document.getElementById('importBtn').textContent = 'นำเข้าข้อสอบ';
+            }
+        }
+
+        function getDifficultyCategory(level) {
+            if (level <= 2) return 'easy';
+            if (level <= 4) return 'medium';
+            return 'hard';
+        }
+
+        // Utility functions
+        function getSubjectName(subject) {
+            const subjects = {
+                'math': 'คณิตศาสตร์',
+                'science': 'วิทยาศาสตร์',
+                'thai': 'ภาษาไทย',
+                'english': 'ภาษาอังกฤษ'
+            };
+            return subjects[subject] || subject;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '-';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatTime(seconds) {
+            if (!seconds) return '-';
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Search and filter functionality
+        document.getElementById('searchItems')?.addEventListener('input', filterItems);
+        document.getElementById('filterDifficulty')?.addEventListener('change', filterItems);
+        document.getElementById('filterSubject')?.addEventListener('change', filterItems);
+
+        async function filterItems() {
+            const searchTerm = document.getElementById('searchItems')?.value.toLowerCase() || '';
+            const difficultyFilter = document.getElementById('filterDifficulty')?.value || '';
+            const subjectFilter = document.getElementById('filterSubject')?.value || '';
+
+            try {
+                let query = db.collection('items');
+                
+                // Apply subject filter if selected
+                if (subjectFilter) {
+                    query = query.where('subject', '==', subjectFilter);
+                }
+                
+                const snapshot = await query.get();
+                const tbody = document.getElementById('itemsTableBody');
+                tbody.innerHTML = '';
+
+                let filteredItems = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    
+                    // Apply search filter
+                    const matchesSearch = !searchTerm || 
+                        data.question.toLowerCase().includes(searchTerm) ||
+                        data.options.some(option => option.toLowerCase().includes(searchTerm));
+                    
+                    // Apply difficulty filter
+                    const matchesDifficulty = !difficultyFilter || data.difficulty === difficultyFilter;
+                    
+                    if (matchesSearch && matchesDifficulty) {
+                        filteredItems.push({ id: doc.id, ...data });
+                    }
+                });
+
+                if (filteredItems.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อสอบที่ตรงกับเงื่อนไข</td></tr>';
+                    return;
+                }
+
+                filteredItems.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-gray-900">${item.question.substring(0, 100)}...</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${getSubjectName(item.subject)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-900">${item.b?.toFixed(2) || '0.00'}</span>
+                                <div class="flex">${getDifficultyStars(item.difficultyLevel || 1)}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.a?.toFixed(2) || '1.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.c?.toFixed(2) || '0.25'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${item.usageCount || 0}</td>
+                        <td class="px-6 py-4 text-sm font-medium">
+                            <button onclick="editItem('${item.id}')" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button>
+                            <button onclick="deleteItem('${item.id}')" class="text-red-600 hover:text-red-900">ลบ</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Error filtering items:', error);
+            }
+        }
+
+        // Results filter functionality
+        document.getElementById('filterResultsSubject')?.addEventListener('change', filterResults);
+        document.getElementById('filterDateFrom')?.addEventListener('change', filterResults);
+        document.getElementById('filterDateTo')?.addEventListener('change', filterResults);
+
+        async function filterResults() {
+            const subjectFilter = document.getElementById('filterResultsSubject')?.value || '';
+            const dateFrom = document.getElementById('filterDateFrom')?.value;
+            const dateTo = document.getElementById('filterDateTo')?.value;
+
+            try {
+                let query = db.collection('testResults').where('userId', '==', currentUser.uid);
+                
+                // Apply subject filter if selected
+                if (subjectFilter) {
+                    query = query.where('subject', '==', subjectFilter);
+                }
+                
+                const snapshot = await query.orderBy('completedAt', 'desc').get();
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+
+                let filteredResults = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    
+                    // Apply date filters
+                    if (dateFrom || dateTo) {
+                        const testDate = data.completedAt?.toDate();
+                        if (testDate) {
+                            const testDateStr = testDate.toISOString().split('T')[0];
+                            
+                            if (dateFrom && testDateStr < dateFrom) return;
+                            if (dateTo && testDateStr > dateTo) return;
+                        }
+                    }
+                    
+                    filteredResults.push({ id: doc.id, ...data });
+                });
+
+                if (filteredResults.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">ไม่พบผลการทดสอบที่ตรงกับเงื่อนไข</td></tr>';
+                    return;
+                }
+
+                filteredResults.forEach(result => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatDate(result.completedAt)}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${getSubjectName(result.subject)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">${result.finalAbility?.toFixed(2) || '0.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${result.standardError?.toFixed(2) || '0.00'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${result.totalItems || 0}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${result.correctAnswers || 0}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${formatTime(result.totalTime)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Error filtering results:', error);
+            }
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set default dates for results filter
+            const today = new Date();
+            const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            
+            if (document.getElementById('filterDateFrom')) {
+                document.getElementById('filterDateFrom').value = oneMonthAgo.toISOString().split('T')[0];
+            }
+            if (document.getElementById('filterDateTo')) {
+                document.getElementById('filterDateTo').value = today.toISOString().split('T')[0];
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98898d5c03a37336',t:'MTc1OTQ2NDIzMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
